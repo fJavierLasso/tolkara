@@ -53,8 +53,6 @@ targetTemplates:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(TOLKARA_BUNDLE_ID)
-        # Include compatibility libraries when building directly from Xcode.
-        NATIVE_GUEST_SHIMS: GENERIC
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: launcher/Info.plist
@@ -80,6 +78,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(TOLKARA_BUNDLE_ID)
+        # A direct Xcode build gets the generic compatibility libraries;
+        # tools/install.sh passes its own choice. TolkaraDiagnostics, used by
+        # tools/run.sh, keeps none unless one is passed.
+        NATIVE_GUEST_SHIMS: GENERIC
         GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) TOLKARA_INTEGRATED_AUTH=1"
         INFOPLIST_FILE: authorization/App/Integrated-Info.plist
         SWIFT_VERSION: "5.0"
