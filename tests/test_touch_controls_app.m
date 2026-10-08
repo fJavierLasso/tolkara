@@ -74,6 +74,8 @@
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
     (void)session; (void)options;
     [NSApplication sharedApplication];
+    // The controls are optional; this fixture exists to show them.
+    [NSUserDefaults.standardUserDefaults setBool:YES forKey:AKTouchControlsDefaultsKey];
     self.guest = [[NSWindow alloc] initWithContentRect:((UIWindowScene *)scene).screen.bounds styleMask:0 backing:2 defer:NO];
     self.guest.contentView = [[AKInputFixtureView alloc] initWithFrame:self.guest.frame];
     self.guest.acceptsMouseMovedEvents = YES;

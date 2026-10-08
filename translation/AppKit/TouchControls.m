@@ -1,6 +1,9 @@
 #import "TouchControls.h"
 #import "TouchTrackpad.h"
 
+NSString *const AKTouchControlsDefaultsKey = @"AKTouchControls";
+static NSString *const AKTouchTrackpadDefaultsKey = @"AKTouchTrackpadEnabled";
+
 @implementation AKTouchControls {
     UIButton *_keyboardButton, *_trackpadButton;
     UIView *_accessory;
@@ -16,6 +19,12 @@ static void AKEmitTouch(void *context, AKTrackpadAction action, double x, double
         case AKTrackpadDown: [controls.delegate touchButton:button pressed:YES]; break;
         case AKTrackpadUp: [controls.delegate touchButton:button pressed:NO]; break;
     }
+}
+
++ (BOOL)enabled {
+    NSNumber *saved = [NSUserDefaults.standardUserDefaults objectForKey:AKTouchControlsDefaultsKey];
+    return [saved isKindOfClass:NSNumber.class] ? saved.boolValue :
+        UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
 }
 
 - (UIButton *)buttonWithSymbol:(NSString *)symbol label:(NSString *)label action:(SEL)action {
@@ -53,7 +62,7 @@ static void AKEmitTouch(void *context, AKTrackpadAction action, double x, double
             }]];
         }
         _trackpadButton.menu = [UIMenu menuWithTitle:@"Mouse buttons" children:actions];
-        NSNumber *saved = [NSUserDefaults.standardUserDefaults objectForKey:@"TKTouchTrackpadEnabled"];
+        NSNumber *saved = [NSUserDefaults.standardUserDefaults objectForKey:AKTouchTrackpadDefaultsKey];
         self.trackpadEnabled = saved ? saved.boolValue : UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(suspendInput:) name:UIApplicationWillResignActiveNotification object:nil];
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowResigned:) name:UIWindowDidResignKeyNotification object:nil];
@@ -61,6 +70,11 @@ static void AKEmitTouch(void *context, AKTrackpadAction action, double x, double
     return self;
 }
 
+// The gap between the buttons belongs to the game.
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    (void)event;
+    return CGRectContainsPoint(_trackpadButton.frame, point) || CGRectContainsPoint(_keyboardButton.frame, point);
+}
 - (void)layoutSubviews {
     [super layoutSubviews];
     _trackpadButton.frame = CGRectMake(0, 0, 44, 44);
@@ -76,7 +90,7 @@ static void AKEmitTouch(void *context, AKTrackpadAction action, double x, double
 }
 - (void)toggleTrackpad {
     self.trackpadEnabled = !self.trackpadEnabled;
-    [NSUserDefaults.standardUserDefaults setBool:self.trackpadEnabled forKey:@"TKTouchTrackpadEnabled"];
+    [NSUserDefaults.standardUserDefaults setBool:self.trackpadEnabled forKey:AKTouchTrackpadDefaultsKey];
 }
 - (BOOL)canBecomeFirstResponder { return YES; }
 - (BOOL)keyboardVisible { return self.isFirstResponder; }

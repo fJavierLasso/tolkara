@@ -134,6 +134,18 @@ int main(void) { @autoreleasepool {
     space.characters=space.charactersIgnoringModifiers=@" ";
     FixturePress *press=[FixturePress new];press.key=space;
     press.timestamp=NSProcessInfo.processInfo.systemUptime;
+    // On-screen controls are optional: with no stored choice an iPad shows
+    // none and keeps single-touch input; iPhone shows them.
+    NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
+    [defaults removeObjectForKey:AKTouchControlsDefaultsKey];
+    BOOL phone=UIDevice.currentDevice.userInterfaceIdiom==UIUserInterfaceIdiomPhone;
+    UIView *plainHost=[NSClassFromString(@"AKHostView") new];
+    assert(AKTouchControls.enabled==phone && !![plainHost valueForKey:@"_touchControls"]==phone);
+    if(!phone) assert(!plainHost.multipleTouchEnabled);
+    [defaults setBool:NO forKey:AKTouchControlsDefaultsKey];
+    plainHost=[NSClassFromString(@"AKHostView") new];
+    assert(![plainHost valueForKey:@"_touchControls"] && !plainHost.multipleTouchEnabled);
+    [defaults setBool:YES forKey:AKTouchControlsDefaultsKey];
     id host=[NSClassFromString(@"AKHostView") new];
     [host setValue:window forKey:@"nsWindow"];
     FixtureKeyResponder *responder=[FixtureKeyResponder new];
@@ -154,6 +166,10 @@ int main(void) { @autoreleasepool {
     // Unicode and never depend on reading the guest's text/selection.
     AKTouchControls *controls = [host valueForKey:@"_touchControls"];
     assert(controls && controls.hasText && controls.isSecureTextEntry);
+    // Only the two buttons take touches; the gap between them is the game's.
+    controls.frame = CGRectMake(0, 0, 96, 44); [controls layoutIfNeeded];
+    assert([controls pointInside:CGPointMake(20, 20) withEvent:nil] && [controls pointInside:CGPointMake(70, 20) withEvent:nil]);
+    assert(![controls pointInside:CGPointMake(48, 20) withEvent:nil]);
     [controls insertText:@"@ñ🙂"];
     NSArray<NSString *> *typed = @[@"@", @"ñ", @"🙂"];
     for (unsigned i = 0; i < 3; i++) for (unsigned up = 0; up < 2; up++) {

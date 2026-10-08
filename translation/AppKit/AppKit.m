@@ -245,7 +245,7 @@ NSEventModifierFlags AKModifiersReconciled(NSEventModifierFlags held, NSEventMod
 @property (nonatomic, weak) NSWindow *nsWindow;
 @end
 
-@implementation AKHostView { CGPoint _last; NSEventModifierFlags _mods; BOOL _pressedRight, _pressedLeft, _pointerInside, _softwareCursor; UIImageView *_cursorView; UIPointerInteraction *_pointer; UIPointerStyle *_gamePointerStyle; unsigned _hoverUpdates, _pointerUpdates, _cursorVisibilityReasons; NSTimeInterval _pointerReportTime;
+@implementation AKHostView { CGPoint _last; NSEventModifierFlags _mods; BOOL _pressedRight, _pressedLeft, _pointerInside, _softwareCursor; UIImageView *_cursorView; UIPointerInteraction *_pointer; UIPointerStyle *_gamePointerStyle; unsigned _hoverUpdates, _pointerUpdates, _cursorVisibilityReasons; NSTimeInterval _pointerReportTime; CGPoint _cursorHotSpot;
     AKTouchControls *_touchControls;
     BOOL _touchCursorActive, _touchCursorInitialized, _pressedMiddle;
     NSTimeInterval _lastTouchClickTime;
@@ -256,7 +256,7 @@ NSEventModifierFlags AKModifiersReconciled(NSEventModifierFlags held, NSEventMod
 }
 - (instancetype)initWithFrame:(CGRect)f {
     if ((self = [super initWithFrame:f])) {
-        self.multipleTouchEnabled = YES;
+        self.multipleTouchEnabled = NO;
         _softwareCursor=[NSProcessInfo.processInfo.arguments containsObject:@"--software-cursor"];
         AKLog(@"cursor presentation=%@",_softwareCursor?@"software overlay":@"native iPad pointer");
         _cursorView=[UIImageView new]; _cursorView.userInteractionEnabled=NO;
@@ -270,19 +270,24 @@ NSEventModifierFlags AKModifiersReconciled(NSEventModifierFlags held, NSEventMod
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lockChanged:) name:UIPointerLockStateDidChangeNotification object:nil];
         for(GCMouse *mouse in GCMouse.mice)[self installMouse:mouse];
         [self addGestureRecognizer:[[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(hover:)]];
-        _touchControls = [[AKTouchControls alloc] initWithFrame:CGRectZero];
-        _touchControls.delegate = self;
-        _touchControls.translatesAutoresizingMaskIntoConstraints = NO;
-        [self addSubview:_touchControls];
-        [NSLayoutConstraint activateConstraints:@[
-            [_touchControls.widthAnchor constraintEqualToConstant:96],
-            [_touchControls.heightAnchor constraintEqualToConstant:44],
-            [_touchControls.trailingAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.trailingAnchor constant:-12],
-            [_touchControls.bottomAnchor constraintEqualToAnchor:self.keyboardLayoutGuide.topAnchor constant:-8],
-        ]];
-        [self touchTrackpadChanged:_touchControls.trackpadEnabled];
+        // Optional on-screen keyboard and trackpad: on by default on iPhone,
+        // off on iPad, where they would cover part of the game.
+        if (AKTouchControls.enabled) [self installTouchControls];
     }
     return self;
+}
+- (void)installTouchControls {
+    _touchControls = [[AKTouchControls alloc] initWithFrame:CGRectZero];
+    _touchControls.delegate = self;
+    _touchControls.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:_touchControls];
+    [NSLayoutConstraint activateConstraints:@[
+        [_touchControls.widthAnchor constraintEqualToConstant:96],
+        [_touchControls.heightAnchor constraintEqualToConstant:44],
+        [_touchControls.trailingAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.trailingAnchor constant:-12],
+        [_touchControls.bottomAnchor constraintEqualToAnchor:self.keyboardLayoutGuide.topAnchor constant:-8],
+    ]];
+    [self touchTrackpadChanged:_touchControls.trackpadEnabled];
 }
 - (BOOL)canBecomeFirstResponder { return YES; }
 - (void)setNsWindow:(NSWindow *)window {
@@ -464,13 +469,13 @@ NSEventModifierFlags AKModifiersReconciled(NSEventModifierFlags held, NSEventMod
         }
     }
     _cursorView.bounds=(CGRect){CGPointZero,image ? cursor.image.size : CGSizeMake(18, 24)};
+    _cursorHotSpot=image ? cursor.hotSpot : CGPointZero;   // the fallback arrow's tip is its corner
     [self positionCursor]; [_pointer invalidate];
 }
 - (void)positionCursor {
-    NSCursor *cursor=NSCursor.currentCursor;
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    _cursorView.frame=(CGRect){CGPointMake(_last.x-cursor.hotSpot.x,_last.y-cursor.hotSpot.y),_cursorView.bounds.size};
+    _cursorView.frame=(CGRect){CGPointMake(_last.x-_cursorHotSpot.x,_last.y-_cursorHotSpot.y),_cursorView.bounds.size};
     unsigned reasons=(!_pointerInside?1:0) | (AKCursorIsHidden()?2:0) | (!_cursorView.image?4:0);
     _cursorView.hidden=!(_softwareCursor || _touchCursorActive) || reasons!=0;
     if(reasons!=_cursorVisibilityReasons) { _cursorVisibilityReasons=reasons; AKLog(@"cursor visibility hidden=%d outside=%d game_hidden=%d no_image=%d",reasons!=0,!!(reasons&1),!!(reasons&2),!!(reasons&4)); }
